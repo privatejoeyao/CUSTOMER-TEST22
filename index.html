@@ -165,12 +165,11 @@
           name = matchedName;
           content = matchedContent;
         } else {
-          // 新增 YYYY-MM-DD HH:mm 格式
+          // 新增 YYYY-MM-DD HH:mm 格式轉換為 [HH:mm:00]
           match = line.match(/^(.+?)>\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\s*:\s*(.*)$/);
           if (match) {
             const [_, matchedName, year, month, day, hh, mm, matchedContent] = match;
-            // 僅取當日時間，轉為秒
-            time = parseInt(hh) * 3600 + parseInt(mm) * 60;
+            time = parseInt(hh) * 3600 + parseInt(mm) * 60;  // 秒部分固定0
             name = matchedName.trim();
             content = matchedContent.trim();
           } else {
@@ -294,6 +293,23 @@
       const hasViolations = violationDetailEl.children.length > 0;
       titleButton.textContent = hasViolations ? "有違規" : "無資料";
       if (hasViolations) showEvaAlert();
+    }
+
+    function clearAll() {
+      document.getElementById("agentNameInput").value = "";
+      document.getElementById("copyInput").value = "";
+      document.getElementById("formattedOutput").innerHTML = "";
+      document.getElementById("violationOutput").innerHTML = "";
+      document.getElementById("violationTitle").textContent = "無資料";
+      document.getElementById("violationDetail").classList.add("hidden");
+    }
+
+    function showEvaAlert() {
+      document.getElementById("evaAlert").classList.remove("hidden");
+    }
+
+    function closeEvaAlert() {
+      document.getElementById("evaAlert").classList.add("hidden");
     }
   </script>
 </body>
