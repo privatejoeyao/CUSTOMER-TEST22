@@ -141,11 +141,10 @@
     }
 
     function formatTime(t) {
-      const d = new Date(t * 1000);
-      const h = String(d.getHours()).padStart(2, "0");
-      const m = String(d.getMinutes()).padStart(2, "0");
-      const s = String(d.getSeconds()).padStart(2, "0");
-      return `${h}:${m}:${s}`;
+      const h = Math.floor(t / 3600);
+      const m = Math.floor((t % 3600) / 60);
+      const s = t % 60;
+      return [h, m, s].map(v => String(v).padStart(2, "0")).join(":");
     }
 
     function generateCombinedOutput() {
@@ -157,19 +156,21 @@
       const allMessages = [];
       for (const line of lines) {
         let time = null, name = null, content = null;
-        // 原有 [HH:MM:SS] 名稱: 內容 格式
+
+        // 1. [HH:MM:SS] 名稱: 內容 格式
         let match = line.match(/^\[(\d{2}):(\d{2}):(\d{2})\]\s*(.*?):\s*(.*)$/);
         if (match) {
           const [_, h, m, s, matchedName, matchedContent] = match;
           time = parseInt(h) * 3600 + parseInt(m) * 60 + parseInt(s);
-          name = matchedName;
-          content = matchedContent;
+          name = matchedName.trim();
+          content = matchedContent.trim();
         } else {
-          // 新增 YYYY-MM-DD HH:mm 格式轉換為 [HH:mm:00]
-          match = line.match(/^(.+?)>\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})\s*:\s*(.*)$/);
+          // 2. 名稱>YYYY-MM-DD HH:mm(:ss)? : 內容 格式，秒數可有可無，無秒數補0
+          match = line.match(/^(.+?)>\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?\s*:\s*(.*)$/);
           if (match) {
-            const [_, matchedName, year, month, day, hh, mm, matchedContent] = match;
-            time = parseInt(hh) * 3600 + parseInt(mm) * 60;  // 秒部分固定0
+            const [_, matchedName, year, month, day, hh, mm, ss, matchedContent] = match;
+            const second = ss !== undefined ? parseInt(ss) : 0;
+            time = parseInt(hh) * 3600 + parseInt(mm) * 60 + second;
             name = matchedName.trim();
             content = matchedContent.trim();
           } else {
@@ -179,14 +180,17 @@
           }
         }
 
+        // 角色判斷
         let role = "USER";
-        if (agentName && name === agentName) role = "AGENT";
-        else if (!agentName && /^[\u4e00-\u9fa5]+$/.test(name)) role = "AGENT";
+        if (agentName && name === agentName) {
+          role = "AGENT";
+        } else if (!agentName && /^[\u4e00-\u9fa5]+$/.test(name)) {
+          role = "AGENT";
+        }
         allMessages.push({ time, name, role, content });
       }
 
-      // 下面保留原有違規檢測與輸出邏輯
-      const violations = [];
+      // 違規檢測與輸出
       const violationDetailEl = document.getElementById("violationOutput");
       violationDetailEl.innerHTML = "";
       const violationKeySet = new Set();
@@ -223,6 +227,7 @@
         violationKeySet.add(messages[messages.length - 1]);
       };
 
+      // 首次超時回覆 > 60秒
       const firstUserIndex = allMessages.findIndex(m => m.role === "USER");
       const firstAgentAfter = firstUserIndex !== -1
         ? allMessages.slice(firstUserIndex + 1).find(m => m.role === "AGENT")
@@ -236,6 +241,7 @@
         }
       }
 
+      // 長時間未回覆 > 240秒
       let i = 0;
       while (i < allMessages.length) {
         if (allMessages[i].role === "USER") {
@@ -255,6 +261,7 @@
         } else i++;
       }
 
+      // 長時間等待 3分鐘或5分鐘判定
       allMessages.forEach((msg) => {
         if (msg.role === "AGENT" && (msg.content.includes("3分钟") || msg.content.includes("5分钟"))) {
           const nextAgent = allMessages.slice(allMessages.indexOf(msg) + 1).find(m => m.role === "AGENT");
@@ -269,26 +276,26 @@
         }
       });
 
-      // 格式化輸出
+      // 格式化輸出訊息，違規紅色標示
       let formatted = "";
       let lastRole = null;
       allMessages.forEach((msg) => {
-        const key = `[${formatTime(msg.time)}] ${msg.name}: ${msg.content}`;
         if (msg.role === "SYSTEM") {
           if (lastRole) formatted += "<br/>";
           formatted += `${msg.content}<br/><br/>`;
           lastRole = null;
-        } else {
-          if (lastRole && lastRole !== msg.role) formatted += "<br/>";
-          const line = `[${formatTime(msg.time)}] ${msg.name}: ${msg.content}`;
-          formatted += violationKeySet.has(key)
-            ? `<span style="color:red;">${line}</span><br/>`
-            : `${line}<br/>`;
-          lastRole = msg.role;
+          return;
         }
+        const key = `[${formatTime(msg.time)}] ${msg.name}: ${msg.content}`;
+        if (lastRole && lastRole !== msg.role) formatted += "<br/>";
+        formatted += violationKeySet.has(key)
+          ? `<span style="color:red;">${key}</span><br/>`
+          : `${key}<br/>`;
+        lastRole = msg.role;
       });
 
       document.getElementById("formattedOutput").innerHTML = formatted.trim();
+
       const titleButton = document.getElementById("violationTitle");
       const hasViolations = violationDetailEl.children.length > 0;
       titleButton.textContent = hasViolations ? "有違規" : "無資料";
