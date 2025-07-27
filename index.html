@@ -141,6 +141,7 @@
     }
 
     function formatTime(t) {
+      if (t === null || isNaN(t)) return "--:--:--";
       const h = Math.floor(t / 3600);
       const m = Math.floor((t % 3600) / 60);
       const s = t % 60;
@@ -180,13 +181,24 @@
           }
         }
 
-        // 角色判斷
-        let role = "USER";
+        // 角色判斷 (調整版)
+        let role = "USER"; // 預設 USER
+
         if (agentName && name === agentName) {
           role = "AGENT";
-        } else if (!agentName && /^[\u4e00-\u9fa5]+$/.test(name)) {
-          role = "AGENT";
+        } else {
+          // 含符號或數字一定是 USER
+          if (/[0-9\W_]/.test(name)) {
+            role = "USER";
+          } else if (/^[\u4e00-\u9fa5]+$/.test(name) || /^[A-Za-z]+$/.test(name)) {
+            // 純中文或純英文是 AGENT
+            role = "AGENT";
+          } else {
+            // 其他視為系統訊息
+            role = "SYSTEM";
+          }
         }
+
         allMessages.push({ time, name, role, content });
       }
 
