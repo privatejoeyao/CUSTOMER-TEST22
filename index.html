@@ -154,6 +154,15 @@
       const cleanedInput = inputRaw.split(/\n+/).map(line => line.trim()).filter(line => line !== "").join("\n");
       const lines = cleanedInput.split("\n");
 
+      const agentNameList = [
+        "taya","mindy","fay","panpan","transkaka","lawson","senlin","dada","qiao",
+        "buke","dicky","bowen","piscoty","bamboo","venny","keanna","quinn","roben",
+        "faraday","junhao","odin","lucian","woobin","chloe","colin","xena","dylan",
+        "livia","juwon","orli","yuci","edur","azura","fread","zoya","youna"
+      ];
+
+      const userPattern = /^[A-Za-z0-9`~!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?\/]+$/;
+
       const allMessages = [];
       for (const line of lines) {
         let time = null, name = null, content = null;
@@ -181,20 +190,20 @@
           }
         }
 
-        // 角色判斷 (調整版)
+        // 角色判斷
         let role = "USER"; // 預設 USER
+        const lowerName = name.toLowerCase();
 
-        if (agentName && name === agentName) {
+        if (agentNameList.includes(lowerName)) {
+          role = "AGENT";
+        } else if (agentName && name === agentName) {
           role = "AGENT";
         } else {
-          // 含符號或數字一定是 USER
-          if (/[0-9\W_]/.test(name)) {
+          if (userPattern.test(name)) {
             role = "USER";
           } else if (/^[\u4e00-\u9fa5]+$/.test(name) || /^[A-Za-z]+$/.test(name)) {
-            // 純中文或純英文是 AGENT
             role = "AGENT";
           } else {
-            // 其他視為系統訊息
             role = "SYSTEM";
           }
         }
@@ -294,7 +303,11 @@
       allMessages.forEach((msg) => {
         if (msg.role === "SYSTEM") {
           if (lastRole) formatted += "<br/>";
-          formatted += `${msg.content}<br/><br/>`;
+          if (msg.time !== null && !isNaN(msg.time)) {
+            formatted += `[${formatTime(msg.time)}] 系統訊息: ${msg.content}<br/><br/>`;
+          } else {
+            formatted += `${msg.content}<br/><br/>`;
+          }
           lastRole = null;
           return;
         }
