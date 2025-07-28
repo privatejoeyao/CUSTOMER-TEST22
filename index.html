@@ -162,6 +162,7 @@
       ];
 
       const userPattern = /^[A-Za-z0-9`~!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?\/]+$/;
+      const fileExtPattern = /\.(jpg|jpeg|png|gif|bmp|pdf|docx?|xlsx?|pptx?)$/i;
 
       const allMessages = [];
       for (const line of lines) {
@@ -175,7 +176,7 @@
           name = matchedName.trim();
           content = matchedContent.trim();
         } else {
-          // 2. 名稱>YYYY-MM-DD HH:mm(:ss)? : 內容 格式，秒數可有可無，無秒數補0
+          // 2. 名稱>YYYY-MM-DD HH:mm(:ss)? : 內容 格式
           match = line.match(/^(.+?)>\s*(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2})(?::(\d{2}))?\s*:\s*(.*)$/);
           if (match) {
             const [_, matchedName, year, month, day, hh, mm, ss, matchedContent] = match;
@@ -184,17 +185,30 @@
             name = matchedName.trim();
             content = matchedContent.trim();
           } else {
-            // 系統訊息
-            allMessages.push({ time: null, name: null, role: "SYSTEM", content: line });
-            continue;
+            // 3. 嘗試判斷檔名訊息格式（例如 "微信图片_20250726213118.png: 访客传送了一个文件：..."）
+            match = line.match(/^([\w\u4e00-\u9fa5_.-]+\.(jpg|jpeg|png|gif|bmp|pdf|docx?|xlsx?|pptx?)):\s*(.*)$/i);
+            if (match) {
+              name = match[1].trim();
+              content = match[3].trim();
+              time = null;
+            } else {
+              // 系統訊息
+              allMessages.push({ time: null, name: null, role: "SYSTEM", content: line });
+              continue;
+            }
           }
         }
 
         // 角色判斷
         let role = "USER"; // 預設 USER
-        const lowerName = name.toLowerCase();
+        const lowerName = name ? name.toLowerCase() : "";
 
-        if (agentNameList.includes(lowerName)) {
+        // 無名稱但內容有檔案副檔名視為USER，或名稱本身是檔案名稱視為USER
+        if ((!name || name.trim() === "") && fileExtPattern.test(content)) {
+          role = "USER";
+        } else if (fileExtPattern.test(name)) {
+          role = "USER";
+        } else if (agentNameList.includes(lowerName)) {
           role = "AGENT";
         } else if (agentName && name === agentName) {
           role = "AGENT";
