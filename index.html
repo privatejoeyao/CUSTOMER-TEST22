@@ -161,7 +161,8 @@
         "livia","juwon","orli","yuci","edur","azura","fread","zoya","youna"
       ];
 
-      const userPattern = /^[A-Za-z0-9`~!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?\/]+$/;
+      // 允許空白字元及Unicode空白範圍
+      const userPattern = /^[A-Za-z0-9\s\u2000-\u200A`~!@#$%^&*()_\-+=\[\]{}|\\:;"'<>,.?\/]+$/;
       const fileExtPattern = /\.(jpg|jpeg|png|gif|bmp|pdf|docx?|xlsx?|pptx?)$/i;
 
       const allMessages = [];
@@ -215,7 +216,7 @@
         } else {
           if (userPattern.test(name)) {
             role = "USER";
-          } else if (/^[\u4e00-\u9fa5]+$/.test(name) || /^[A-Za-z]+$/.test(name)) {
+          } else if (/^[\u4e00-\u9fa5\s]+$/.test(name) || /^[A-Za-z\s]+$/.test(name)) {
             role = "AGENT";
           } else {
             role = "SYSTEM";
@@ -358,5 +359,6 @@
       document.getElementById("evaAlert").classList.add("hidden");
     }
   </script>
+
 </body>
 </html>
